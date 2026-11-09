@@ -1,0 +1,27 @@
+
+# Database backups and exports
+*.sql
+*.sql.zip
+*.dump
+
+# Environment and secret files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.old
+
+# Local configuration secrets
+config.local.php
+db.local.php
+
+# Uploaded private files
+uploads/
+includes/db.php
+test_connection.php
