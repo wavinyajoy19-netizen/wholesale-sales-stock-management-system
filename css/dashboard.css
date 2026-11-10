@@ -998,3 +998,126 @@ body.dashboard-page .app-sidebar .sidebar-nav a.active {
     color: #243447;
     padding: 10px 12px;
 }
+
+/* =========================================
+   WHOLESALE SYSTEM SIDEBAR FIX
+========================================= */
+
+/* Sidebar brand */
+.app-sidebar .app-brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 0 8px 22px;
+    border-bottom: 1px solid #345064;
+}
+
+.app-sidebar .app-brand-icon {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    border-radius: 12px;
+    background: #0d9488;
+    color: #ffffff;
+    font-size: 18px;
+}
+
+.app-sidebar .app-brand strong {
+    display: block;
+    color: #ffffff;
+    font-size: 14px;
+}
+
+.app-sidebar .app-brand small {
+    display: block;
+    margin-top: 4px;
+    color: #b7c9d9;
+    font-size: 11px;
+}
+
+/* Menu layout */
+.app-sidebar .sidebar-nav {
+    display: grid;
+    gap: 5px;
+    margin-top: 20px;
+}
+
+/* Menu links */
+.app-sidebar .sidebar-nav .sidebar-link,
+.app-sidebar .sidebar-bottom .sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 42px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    color: #d9e5ef;
+    font-size: 13px;
+    text-decoration: none;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Icon alignment */
+.app-sidebar .sidebar-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    min-width: 22px;
+    font-size: 15px;
+    text-align: center;
+}
+
+/* Menu text - remove unwanted margin */
+.app-sidebar .sidebar-nav .sidebar-label,
+.app-sidebar .sidebar-bottom .sidebar-label {
+    display: block;
+    margin: 0;
+    color: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: normal;
+}
+
+/* Hover */
+.app-sidebar .sidebar-link:hover {
+    background: #21465f;
+    color: #ffffff;
+}
+
+/* Active menu */
+.app-sidebar .sidebar-nav .sidebar-link.active {
+    background: #17658a;
+    color: #ffffff;
+    box-shadow: inset 4px 0 #2dd4bf;
+}
+
+/* Logout */
+.app-sidebar .sidebar-bottom {
+    margin-top: auto;
+    padding-top: 24px;
+    border-top: 1px solid #345064;
+}
+
+.app-sidebar .sidebar-bottom .sidebar-link {
+    color: #fca5a5;
+}
+
+.app-sidebar .sidebar-bottom .sidebar-link:hover {
+    background: #21465f;
+    color: #ffffff;
+}
+
+/* Responsive sidebar */
+@media (max-width: 700px) {
+    .app-sidebar .sidebar-nav {
+        margin-top: 12px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .app-sidebar .sidebar-bottom {
+        padding-top: 10px;
+    }
+}
