@@ -24,4 +24,5 @@ db.local.php
 # Uploaded private files
 uploads/
 includes/db.php
+includes/hashpay_config.php
 test_connection.php

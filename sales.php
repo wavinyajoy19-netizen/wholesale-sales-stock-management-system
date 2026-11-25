@@ -40,6 +40,7 @@ if (count($selectedLines) === 0) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
     $customerInput = trim((string)($_POST['customer_id'] ?? ''));
     $paymentMethod = $_POST['payment_method'] ?? 'cash';
     $amountPaidInput = trim((string)($_POST['amount_paid'] ?? ''));
@@ -57,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$isWalkIn && ($customerId === false || !$customerId || $customerId < 1)) {
         $error = 'Please select a registered customer or Walk-in Customer.';
-    } elseif (!in_array($paymentMethod, ['cash', 'mpesa'], true)) {
+    } elseif (!in_array($paymentMethod, ['cash', 'mpesa', 'hashpay'], true)) {
         $error = 'Please select a valid payment method.';
     } elseif ($amountPaidInput === '' || !is_numeric($amountPaidInput)) {
         $error = 'Please enter a valid amount paid.';
@@ -73,7 +74,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (count($selectedLines) === 0) {
         $error = 'Please add at least one product.';
     } else {
+
         foreach ($selectedLines as $line) {
+
             $productId = filter_var($line['product_id'], FILTER_VALIDATE_INT);
             $quantity = filter_var($line['quantity'], FILTER_VALIDATE_INT);
 
@@ -100,13 +103,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($error === '') {
+
         try {
+
             $pdo->beginTransaction();
 
             // Handle registered customers and walk-in customers.
             if ($isWalkIn) {
+
                 $customerType = 'walk-in';
+
             } else {
+
                 $stmt = $pdo->prepare(
                     "SELECT id, full_name, customer_type
                      FROM customers
@@ -134,6 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $lockedProducts = [];
 
             foreach ($productIds as $productId) {
+
                 $stmt = $pdo->prepare(
                     "SELECT id, product_name, product_code, quantity,
                             buying_price, selling_price,
@@ -155,6 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Calculate prices and check stock.
             foreach ($validatedLines as $line) {
+
                 $productId = $line['product_id'];
                 $quantity = $line['quantity'];
                 $product = $lockedProducts[$productId];
@@ -210,6 +220,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $balance = round($total - $amountPaid, 2);
 
+            // HASH PAY PROCESSING
+            // HashPay requires the customer to pay the complete sale amount.
+            if ($paymentMethod === 'hashpay') {
+
+                if ($amountPaid !== $total) {
+                    throw new RuntimeException(
+                        'For HashPay, the amount paid must equal the full sale amount.'
+                    );
+                }
+
+                require_once __DIR__ . '/includes/hashpay_config.php';
+
+                $reference = 'HP-' . date('YmdHis') . '-' .
+                    strtoupper(bin2hex(random_bytes(6)));
+
+                // Save pending sale.
+                $stmt = $pdo->prepare(
+                    "INSERT INTO hashpay_pending_sales
+                     (reference, user_id, customer_id, total_amount, status)
+                     VALUES (?, ?, ?, ?, 'pending')"
+                );
+
+                $stmt->execute([
+                    $reference,
+                    $_SESSION['user_id'],
+                    $customerId,
+                    $total
+                ]);
+
+                $pendingSaleId = (int)$pdo->lastInsertId();
+
+                // Save pending sale items.
+                $pendingItemStmt = $pdo->prepare(
+                    "INSERT INTO hashpay_pending_items
+                     (pending_sale_id, product_id, quantity, unit_price,
+                      buying_price_at_sale, subtotal)
+                     VALUES (?, ?, ?, ?, ?, ?)"
+                );
+
+                foreach ($saleItems as $item) {
+
+                    $pendingItemStmt->execute([
+                        $pendingSaleId,
+                        $item['product_id'],
+                        $item['quantity'],
+                        $item['unit_price'],
+                        $item['buying_price'],
+                        $item['subtotal']
+                    ]);
+                }
+
+                // Commit pending sale without deducting stock.
+                $pdo->commit();
+
+                header('Location: hashpay_checkout.php?ref=' . urlencode($reference));
+                exit;
+            }
+
+            // CASH AND MANUAL M-PESA PROCESSING
             $savedMpesaReference = ($paymentMethod === 'mpesa')
                 ? $mpesaReference
                 : null;
@@ -262,6 +331,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Save items and deduct stock.
             foreach ($saleItems as $item) {
+
                 $itemStmt->execute([
                     $saleId,
                     $item['product_id'],
@@ -298,6 +368,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
 
         } catch (Throwable $e) {
+
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
@@ -341,7 +412,6 @@ require_once 'includes/header.php';
 ?>
 
 <style>
-/* Main sales page */
 .sales-page {
     max-width: 1200px;
     margin: 0 auto;
@@ -381,7 +451,6 @@ require_once 'includes/header.php';
     font-size: 13px;
 }
 
-/* Sections */
 .sales-section {
     background: #ffffff;
     border: 1px solid #dce3ed;
@@ -425,7 +494,6 @@ require_once 'includes/header.php';
     font-size: 13px;
 }
 
-/* Separate field boxes */
 .sales-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -478,7 +546,6 @@ require_once 'includes/header.php';
     max-width: 100%;
 }
 
-/* Product rows */
 .product-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 180px 95px;
@@ -500,7 +567,6 @@ require_once 'includes/header.php';
     min-height: 44px;
 }
 
-/* Buttons */
 .sales-btn {
     display: inline-flex;
     justify-content: center;
@@ -552,7 +618,6 @@ require_once 'includes/header.php';
     margin-top: 12px;
 }
 
-/* Payment section */
 .payment-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -563,7 +628,6 @@ require_once 'includes/header.php';
     display: none;
 }
 
-/* Summary */
 .sale-summary {
     background: #102b50;
     color: #ffffff;
@@ -609,7 +673,6 @@ require_once 'includes/header.php';
     color: #ffffff;
 }
 
-/* Form actions */
 .sales-actions {
     display: flex;
     justify-content: flex-end;
@@ -627,7 +690,6 @@ require_once 'includes/header.php';
     border: 1px solid #f0caca;
 }
 
-/* Responsive */
 @media (max-width: 700px) {
     .sales-grid,
     .payment-grid {
@@ -691,6 +753,7 @@ require_once 'includes/header.php';
 
             <div class="sales-grid">
                 <div class="sales-field customer-field">
+
                     <label for="customer_id">Select Customer</label>
 
                     <select name="customer_id" id="customer_id" required>
@@ -724,6 +787,7 @@ require_once 'includes/header.php';
                     <a href="customers.php" class="sales-btn sales-btn-secondary manage-customer-link">
                         + Manage Customers
                     </a>
+
                 </div>
             </div>
 
@@ -814,6 +878,7 @@ require_once 'includes/header.php';
                     <label for="payment_method">Payment Method</label>
 
                     <select name="payment_method" id="payment_method" required>
+
                         <option value="cash" <?= $selectedPayment === 'cash' ? 'selected' : '' ?>>
                             Cash
                         </option>
@@ -821,10 +886,15 @@ require_once 'includes/header.php';
                         <option value="mpesa" <?= $selectedPayment === 'mpesa' ? 'selected' : '' ?>>
                             M-Pesa
                         </option>
+
+                        <option value="hashpay" <?= $selectedPayment === 'hashpay' ? 'selected' : '' ?>>
+                            HashPay (M-PESA Online)
+                        </option>
+
                     </select>
 
                     <p class="form-hint">
-                        Select how the customer has paid.
+                        Select Cash, manual M-Pesa, or HashPay online payment.
                     </p>
                 </div>
 
@@ -948,6 +1018,7 @@ require_once 'includes/header.php';
                         - Stock: <?= (int)$product['quantity'] ?>
                     </option>
                 <?php endforeach; ?>
+
             </select>
         </div>
 
@@ -999,17 +1070,29 @@ function money(value) {
 }
 
 function updatePaymentFields() {
+
     const isMpesa = paymentSelect.value === 'mpesa';
+    const isHashPay = paymentSelect.value === 'hashpay';
 
     mpesaGroup.style.display = isMpesa ? 'block' : 'none';
     mpesaReferenceInput.required = isMpesa;
 
+    // HashPay amount is automatically set to the full sale total.
+    amountPaidInput.readOnly = isHashPay;
+
     if (!isMpesa) {
         mpesaReferenceInput.value = '';
     }
+
+    if (isHashPay) {
+        amountPaidInput.value = '';
+    }
+
+    updateSalePreview();
 }
 
 function updateSalePreview() {
+
     const customerOption = customerSelect.options[customerSelect.selectedIndex];
     const customerType = customerOption ? customerOption.dataset.type : '';
 
@@ -1018,6 +1101,7 @@ function updateSalePreview() {
     let productCount = 0;
 
     document.querySelectorAll('.product-row').forEach(row => {
+
         const productSelect = row.querySelector('.product-select');
         const quantityInput = row.querySelector('.quantity-input');
 
@@ -1042,9 +1126,15 @@ function updateSalePreview() {
         total += price * quantity;
         totalQuantity += quantity;
         productCount++;
+
     });
 
     total = Math.round(total * 100) / 100;
+
+    // Automatically fill the full amount when HashPay is selected.
+    if (paymentSelect.value === 'hashpay') {
+        amountPaidInput.value = total.toFixed(2);
+    }
 
     const paid = Number(amountPaidInput.value || 0);
     const balance = Math.round((total - paid) * 100) / 100;
@@ -1059,14 +1149,18 @@ function updateSalePreview() {
 }
 
 function addProductRow() {
+
     const newRow = productTemplate.content.cloneNode(true);
+
     productRows.appendChild(newRow);
+
     updateSalePreview();
 }
 
 addProductButton.addEventListener('click', addProductRow);
 
 productRows.addEventListener('change', function(event) {
+
     if (
         event.target.classList.contains('product-select') ||
         event.target.classList.contains('quantity-input')
@@ -1076,13 +1170,16 @@ productRows.addEventListener('change', function(event) {
 });
 
 productRows.addEventListener('input', function(event) {
+
     if (event.target.classList.contains('quantity-input')) {
         updateSalePreview();
     }
 });
 
 productRows.addEventListener('click', function(event) {
+
     if (event.target.classList.contains('remove-product')) {
+
         const rows = productRows.querySelectorAll('.product-row');
 
         if (rows.length > 1) {
